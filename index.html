@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Digital Services Tax (DST) Global Map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --surface-2: #243044;
+      --border: #2d3f56;
+      --text: #e8edf4;
+      --text-muted: #8fa3bc;
+      --implemented: #3b82f6;
+      --related: #a855f7;
+      --proposed: #f59e0b;
+      --paused: #64748b;
+      --rescinded: #475569;
+      --none: #1e293b;
+      --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "DM Sans", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 2.5rem;
+    }
+
+    header {
+      margin-bottom: 1.5rem;
+    }
+
+    header h1 {
+      margin: 0 0 0.35rem;
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--text-muted);
+      max-width: 62ch;
+      font-size: 0.95rem;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.5rem;
+      margin-top: 1rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .meta span {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .meta .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #22c55e;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 1.25rem;
+      align-items: start;
+    }
+
+    @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .map-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .map-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      cursor: default;
+    }
+
+    .legend-swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .zoom-hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    #map-container {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      min-height: 360px;
+      background: radial-gradient(ellipse at 50% 30%, #1e2d42 0%, #121a24 70%);
+    }
+
+    #map-container svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+    }
+
+    #map-container svg:active { cursor: grabbing; }
+
+    .country {
+      stroke: #0f1419;
+      stroke-width: 0.4px;
+      transition: fill 0.15s ease, opacity 0.15s ease;
+    }
+
+    .country.has-dst { cursor: pointer; }
+    .country.has-dst:hover { opacity: 0.85; }
+    .country.dimmed { opacity: 0.35; }
+
+    .tooltip {
+      position: fixed;
+      pointer-events: none;
+      z-index: 100;
+      max-width: 300px;
+      padding: 0.75rem 0.9rem;
+      background: rgba(15, 20, 25, 0.96);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      font-size: 0.82rem;
+      opacity: 0;
+      transform: translate(-50%, calc(-100% - 14px));
+      transition: opacity 0.12s ease;
+    }
+
+    .tooltip.visible { opacity: 1; }
+
+    .tooltip::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -6px;
+      transform: translateX(-50%) rotate(45deg);
+      width: 10px;
+      height: 10px;
+      background: rgba(15, 20, 25, 0.96);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tooltip-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .tooltip-badge {
+      display: inline-block;
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.45rem;
+    }
+
+    .tooltip-row {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 0.25rem 0.5rem;
+      margin-top: 0.25rem;
+    }
+
+    .tooltip-row dt {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
+
+    .tooltip-row dd {
+      margin: 0;
+      font-size: 0.78rem;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .detail-card, .stats-card, .list-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1rem 1.1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .detail-card h2, .stats-card h2, .list-card h2 {
+      margin: 0 0 0.75rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+
+    .detail-empty {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+    }
+
+    .detail-country {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin: 0 0 0.5rem;
+    }
+
+    .detail-grid {
+      display: grid;
+      gap: 0.55rem;
+    }
+
+    .detail-item label {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.1rem;
+    }
+
+    .detail-item span, .detail-item p {
+      font-size: 0.88rem;
+      margin: 0;
+    }
+
+    .detail-item .rate {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: #93c5fd;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem;
+    }
+
+    .stat {
+      background: var(--surface-2);
+      border-radius: 8px;
+      padding: 0.65rem 0.75rem;
+    }
+
+    .stat-value {
+      font-size: 1.35rem;
+      font-weight: 700;
+      font-family: "IBM Plex Mono", monospace;
+    }
+
+    .stat-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .country-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .country-list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.45rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+      cursor: pointer;
+    }
+
+    .country-list li:last-child { border-bottom: none; }
+    .country-list li:hover { color: #93c5fd; }
+
+    .country-list .pill {
+      font-size: 0.65rem;
+      padding: 0.12rem 0.4rem;
+      border-radius: 999px;
+      font-weight: 600;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    footer {
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    footer a { color: #93c5fd; }
+
+    .loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .filter-btn {
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.72rem;
+      padding: 0.25rem 0.55rem;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .filter-btn:hover, .filter-btn.active {
+      background: var(--surface-2);
+      color: var(--text);
+      border-color: #3b82f6;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Digital Services Tax Global Map</h1>
+      <p>
+        Interactive overview of unilateral Digital Services Taxes and closely related digital revenue
+        levies worldwide. Hover a highlighted country for a summary; click to pin details in the sidebar.
+      </p>
+      <div class="meta">
+        <span><span class="dot"></span> Updated for review — June 2026</span>
+        <span>Excludes VAT/GST on digital services to consumers</span>
+        <span>Source basis: <a href="https://www.vatcalc.com/global/digital-services-taxes-dst-global-tracker/" style="color:#93c5fd">VATCalc DST tracker</a> &amp; public filings</span>
+      </div>
+    </header>
+
+    <div class="layout">
+      <div class="map-panel">
+        <div class="map-toolbar">
+          <div class="legend" id="legend"></div>
+          <span class="zoom-hint">Scroll to zoom · Drag to pan</span>
+        </div>
+        <div id="map-container">
+          <div class="loading" id="loading">Loading map…</div>
+        </div>
+      </div>
+
+      <aside class="sidebar">
+        <div class="detail-card">
+          <h2>Country details</h2>
+          <div id="detail-panel">
+            <p class="detail-empty">Hover or click a highlighted country to see rate, thresholds, scope, and status.</p>
+          </div>
+        </div>
+
+        <div class="stats-card">
+          <h2>Summary</h2>
+          <div class="stats-grid" id="stats-grid"></div>
+        </div>
+
+        <div class="list-card">
+          <h2>Jurisdictions</h2>
+          <div class="filter-bar" id="filter-bar"></div>
+          <ul class="country-list" id="country-list"></ul>
+        </div>
+      </aside>
+    </div>
+
+    <footer>
+      <p>
+        <strong>Disclaimer:</strong> This map is for informational review only and is not tax advice.
+        DST rules change frequently; verify status, rates, and filing obligations with qualified advisers
+        and official sources before relying on any figure shown here.
+      </p>
+    </footer>
+  </div>
+
+  <div class="tooltip" id="tooltip" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+  <script>
+    const STATUS = {
+      implemented: { label: "In force", color: "#3b82f6" },
+      related:     { label: "Related levy", color: "#a855f7" },
+      proposed:    { label: "Proposed", color: "#f59e0b" },
+      paused:      { label: "Paused", color: "#64748b" },
+      rescinded:   { label: "Rescinded", color: "#475569" }
+    };
+
+    // ISO 3166-1 alpha-2 keyed dataset (aligned with VATCalc / public DST trackers)
+    const DST_DATA = {
+      AT: {
+        name: "Austria",
+        status: "implemented",
+        rate: "5%",
+        effective: "Jan 2020",
+        thresholds: "€750m global · €25m Austrian online ad revenue",
+        scope: "Online advertising",
+        notes: "Turnover tax on targeted online advertising; no deduction for related costs."
+      },
+      BE: {
+        name: "Belgium",
+        status: "proposed",
+        rate: "3%",
+        effective: "From 2027 (planned)",
+        thresholds: "€750m global · €5m Belgium digital revenue",
+        scope: "Advertising; intermediation; user data",
+        notes: "Coalition agreement commits to a 3% DST by 2027; not yet enacted."
+      },
+      FR: {
+        name: "France",
+        status: "implemented",
+        rate: "3%",
+        effective: "Jan 2019",
+        thresholds: "€750m global · €25m France digital services",
+        scope: "Advertising; marketplaces; user data",
+        notes: "Among the first major DSTs; subject to ongoing US trade pressure."
+      },
+      IT: {
+        name: "Italy",
+        status: "implemented",
+        rate: "3%",
+        effective: "Jan 2020",
+        thresholds: "€750m global · €5.5m Italy digital services",
+        scope: "Advertising; digital interfaces; user data",
+        notes: "Digital services tax (web tax) on in-scope digital revenues."
+      },
+      ES: {
+        name: "Spain",
+        status: "implemented",
+        rate: "3%",
+        effective: "Jan 2021",
+        thresholds: "€750m global · €3m Spain digital services",
+        scope: "Advertising; user data",
+        notes: "Impuesto sobre Determinados Servicios Digitales (IDSD)."
+      },
+      GB: {
+        name: "United Kingdom",
+        status: "implemented",
+        rate: "2%",
+        effective: "Apr 2020",
+        thresholds: "£500m global · £25m UK digital services",
+        scope: "Marketplaces; social media; search engines",
+        notes: "Interim measure pending OECD Pillar One; safe harbour available."
+      },
+      TR: {
+        name: "Turkey",
+        status: "implemented",
+        rate: "5% (2026)",
+        effective: "Mar 2020",
+        thresholds: "€750m equivalent global · TRY 20m Turkey",
+        scope: "Advertising; content; social media; broader digital services",
+        notes: "Rate stepped down from 7.5%; presidential discretion between 1%–15%."
+      },
+      DK: {
+        name: "Denmark",
+        status: "implemented",
+        rate: "2%",
+        effective: "In force",
+        thresholds: "Large-group thresholds apply",
+        scope: "Digital services turnover",
+        notes: "Part of the European cluster of turnover-based digital levies."
+      },
+      PL: {
+        name: "Poland",
+        status: "implemented",
+        rate: "1.5%",
+        effective: "Jul 2020",
+        thresholds: "Streaming / AV services",
+        scope: "Streaming and audiovisual media",
+        notes: "Broader 3% platform DST proposal remains paused pending OECD progress."
+      },
+      PT: {
+        name: "Portugal",
+        status: "implemented",
+        rate: "1.5% – 4%",
+        effective: "Feb 2021",
+        thresholds: "Service-specific",
+        scope: "Video-sharing; subscription streaming; proposed streaming levy",
+        notes: "Multiple digital levies; higher 7% streaming proposal under discussion."
+      },
+      CH: {
+        name: "Switzerland",
+        status: "implemented",
+        rate: "4%",
+        effective: "In force",
+        thresholds: "Group revenue thresholds",
+        scope: "Digital services",
+        notes: "Non-EU European jurisdiction with a DST-style turnover charge."
+      },
+      LV: {
+        name: "Latvia",
+        status: "implemented",
+        rate: "3%",
+        effective: "In force",
+        thresholds: "Large-group thresholds",
+        scope: "Digital services",
+        notes: "Part of the expanding European DST landscape."
+      },
+      HU: {
+        name: "Hungary",
+        status: "related",
+        rate: "0% (suspended to Dec 2025)",
+        effective: "2014 regime",
+        thresholds: "HUF 100m Hungarian ad revenue",
+        scope: "Advertising tax (not classic DST)",
+        notes: "Advertising turnover tax; rate suspended but legal framework remains."
+      },
+      CZ: {
+        name: "Czechia",
+        status: "proposed",
+        rate: "5%",
+        effective: "Proposed",
+        thresholds: "€750m global (typical)",
+        scope: "Digital services",
+        notes: "Legislation signalled; prior 2021 bill was withdrawn."
+      },
+      SK: {
+        name: "Slovakia",
+        status: "paused",
+        rate: "TBC",
+        effective: "Not enacted",
+        thresholds: "—",
+        scope: "Advertising; user data (proposed)",
+        notes: "Implementation paused pending OECD Pillar One."
+      },
+      SI: {
+        name: "Slovenia",
+        status: "paused",
+        rate: "TBC",
+        effective: "Not enacted",
+        thresholds: "—",
+        scope: "Advertising; user data (proposed)",
+        notes: "Proposed DST on hold."
+      },
+      NO: {
+        name: "Norway",
+        status: "proposed",
+        rate: "TBC",
+        effective: "Signalled",
+        thresholds: "—",
+        scope: "Digital services",
+        notes: "Has expressed intention to introduce a DST-style measure."
+      },
+      CA: {
+        name: "Canada",
+        status: "rescinded",
+        rate: "3%",
+        effective: "Jun 2024 – rescinded 2025",
+        thresholds: "CAD 1.1bn global · CAD 20m Canadian digital revenue",
+        scope: "Marketplaces; advertising; social media; user data",
+        notes: "Digital Services Tax Act enacted 2024; repealed after US tariff threats."
+      },
+      BR: {
+        name: "Brazil",
+        status: "proposed",
+        rate: "TBC",
+        effective: "Under discussion",
+        thresholds: "—",
+        scope: "Digital economy",
+        notes: "Digital taxation proposals under active debate."
+      },
+      AR: {
+        name: "Argentina",
+        status: "proposed",
+        rate: "TBC",
+        effective: "Under discussion",
+        thresholds: "—",
+        scope: "Digital services",
+        notes: "Listed in regional DST monitoring; confirm local status before filing."
+      },
+      CO: {
+        name: "Colombia",
+        status: "proposed",
+        rate: "TBC",
+        effective: "Under discussion",
+        thresholds: "—",
+        scope: "Digital services",
+        notes: "Digital tax measures under consideration."
+      },
+      IN: {
+        name: "India",
+        status: "related",
+        rate: "6%",
+        effective: "2016 (advertising EL)",
+        thresholds: "INR 1 lakh aggregate per payer/year",
+        scope: "Equalisation Levy on advertising (not labelled DST)",
+        notes: "2% e-commerce equalisation levy repealed Aug 2024; 6% ad levy remains."
+      },
+      ID: {
+        name: "Indonesia",
+        status: "related",
+        rate: "Various",
+        effective: "In force",
+        thresholds: "Service-specific",
+        scope: "VAT on digital supplies; electronic transaction levies",
+        notes: "Significant digital economy taxes; largely converted to VAT/e-levy model."
+      },
+      NP: {
+        name: "Nepal",
+        status: "implemented",
+        rate: "2%",
+        effective: "Mar 2022",
+        thresholds: "NPR 2m",
+        scope: "Electronic and digital services",
+        notes: "DST on in-scope digital service revenues."
+      },
+      PK: {
+        name: "Pakistan",
+        status: "implemented",
+        rate: "5%",
+        effective: "Jul 2024",
+        thresholds: "FBR de minimis rules",
+        scope: "Digital marketplaces",
+        notes: "§6A Income Tax Ordinance — DST on digital marketplace services."
+      },
+      VN: {
+        name: "Vietnam",
+        status: "implemented",
+        rate: "~5% CIT",
+        effective: "Jan 2022",
+        thresholds: "Platform-specific",
+        scope: "Non-resident e-commerce platforms",
+        notes: "Decree 91/2022 — DST-like CIT on cross-border platform revenues."
+      },
+      AU: {
+        name: "Australia",
+        status: "proposed",
+        rate: "TBC",
+        effective: "Proposed",
+        thresholds: "—",
+        scope: "Digital advertising / services",
+        notes: "DST-style measures discussed; monitor Treasury updates."
+      },
+      NZ: {
+        name: "New Zealand",
+        status: "paused",
+        rate: "3% (bill)",
+        effective: "Bill paused 2024",
+        thresholds: "NZ$1.5bn global · NZ$3.5m NZ",
+        scope: "Intermediation; social media; content",
+        notes: "DST Bill paused pending OECD Pillar One outcome."
+      },
+      TW: {
+        name: "Taiwan",
+        status: "related",
+        rate: "WHT",
+        effective: "Jan 2017",
+        thresholds: "—",
+        scope: "Withholding on digital/electronic services",
+        notes: "Withholding regime on B2B/B2C digital services rather than classic DST."
+      },
+      KE: {
+        name: "Kenya",
+        status: "related",
+        rate: "6% SEPT",
+        effective: "Dec 2024",
+        thresholds: "KES 5m local",
+        scope: "Significant Economic Presence Tax",
+        notes: "1.5% DST repealed Dec 2024; replaced by 6% SEPT on digital presence."
+      },
+      TZ: {
+        name: "Tanzania",
+        status: "implemented",
+        rate: "2%",
+        effective: "Jul 2022",
+        thresholds: "—",
+        scope: "Digital service tax",
+        notes: "Turnover charge on qualifying digital services."
+      },
+      TN: {
+        name: "Tunisia",
+        status: "implemented",
+        rate: "3%",
+        effective: "Jan 2020",
+        thresholds: "—",
+        scope: "Digital services",
+        notes: "Loi de Finances 2020 digital levy."
+      },
+      UG: {
+        name: "Uganda",
+        status: "implemented",
+        rate: "5%",
+        effective: "Jul 2023",
+        thresholds: "UGX 150m",
+        scope: "Non-resident digital service providers",
+        notes: "DST on cross-border digital services to Ugandan users."
+      },
+      ZW: {
+        name: "Zimbabwe",
+        status: "implemented",
+        rate: "5%",
+        effective: "Jan 2019",
+        thresholds: "Broad scope",
+        scope: "Digital services turnover",
+        notes: "Income Tax Act §12B digital tax."
+      },
+      GH: {
+        name: "Ghana",
+        status: "proposed",
+        rate: "TBC",
+        effective: "Under discussion",
+        thresholds: "—",
+        scope: "Digital services",
+        notes: "Listed in Africa/Middle East DST monitoring."
+      },
+      NG: {
+        name: "Nigeria",
+        status: "proposed",
+        rate: "TBC",
+        effective: "Under discussion",
+        thresholds: "—",
+        scope: "Digital services",
+        notes: "Digital tax proposals under review."
+      }
+    };
+
+    // world-atlas country name → ISO alpha-2
+    const NAME_TO_ISO = {
+      "Austria": "AT", "Belgium": "BE", "France": "FR", "Italy": "IT", "Spain": "ES",
+      "United Kingdom": "GB", "Turkey": "TR", "Denmark": "DK", "Poland": "PL", "Portugal": "PT",
+      "Switzerland": "CH", "Latvia": "LV", "Hungary": "HU", "Czechia": "CZ", "Slovakia": "SK",
+      "Slovenia": "SI", "Norway": "NO", "Canada": "CA", "Brazil": "BR", "Argentina": "AR",
+      "Colombia": "CO", "India": "IN", "Indonesia": "ID", "Nepal": "NP", "Pakistan": "PK",
+      "Vietnam": "VN", "Australia": "AU", "New Zealand": "NZ", "Taiwan": "TW", "Kenya": "KE",
+      "Tanzania": "TZ", "Tunisia": "TN", "Uganda": "UG", "Zimbabwe": "ZW", "Ghana": "GH",
+      "Nigeria": "NG"
+    };
+
+    const tooltip = document.getElementById("tooltip");
+    const detailPanel = document.getElementById("detail-panel");
+    const loading = document.getElementById("loading");
+    let activeFilter = "all";
+    let pinnedCode = null;
+
+    function getColor(status) {
+      return STATUS[status]?.color || "#1e293b";
+    }
+
+    function renderLegend() {
+      const legend = document.getElementById("legend");
+      legend.innerHTML = Object.entries(STATUS).map(([key, val]) =>
+        `<span class="legend-item"><span class="legend-swatch" style="background:${val.color}"></span>${val.label}</span>`
+      ).join("") + `<span class="legend-item"><span class="legend-swatch" style="background:#1e293b"></span>No DST data</span>`;
+    }
+
+    function renderStats() {
+      const counts = { implemented: 0, related: 0, proposed: 0, paused: 0, rescinded: 0 };
+      Object.values(DST_DATA).forEach(d => counts[d.status]++);
+      document.getElementById("stats-grid").innerHTML = Object.entries(counts).map(([k, v]) =>
+        `<div class="stat"><div class="stat-value" style="color:${STATUS[k].color}">${v}</div><div class="stat-label">${STATUS[k].label}</div></div>`
+      ).join("");
+    }
+
+    function renderFilters() {
+      const bar = document.getElementById("filter-bar");
+      const filters = [["all", "All"], ...Object.entries(STATUS).map(([k, v]) => [k, v.label])];
+      bar.innerHTML = filters.map(([k, label]) =>
+        `<button class="filter-btn${k === activeFilter ? " active" : ""}" data-filter="${k}">${label}</button>`
+      ).join("");
+      bar.querySelectorAll(".filter-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          activeFilter = btn.dataset.filter;
+          renderFilters();
+          renderCountryList();
+        });
+      });
+    }
+
+    function renderCountryList() {
+      const list = document.getElementById("country-list");
+      const entries = Object.entries(DST_DATA)
+        .filter(([, d]) => activeFilter === "all" || d.status === activeFilter)
+        .sort((a, b) => a[1].name.localeCompare(b[1].name));
+
+      list.innerHTML = entries.map(([code, d]) =>
+        `<li data-code="${code}"><span>${d.name}</span><span class="pill" style="background:${STATUS[d.status].color}22;color:${STATUS[d.status].color}">${d.rate}</span></li>`
+      ).join("");
+
+      list.querySelectorAll("li").forEach(li => {
+        li.addEventListener("click", () => {
+          pinnedCode = li.dataset.code;
+          showDetail(pinnedCode);
+          highlightCountry(pinnedCode);
+        });
+      });
+    }
+
+    function showDetail(code) {
+      const d = DST_DATA[code];
+      if (!d) {
+        detailPanel.innerHTML = `<p class="detail-empty">No DST data for this jurisdiction.</p>`;
+        return;
+      }
+      const st = STATUS[d.status];
+      detailPanel.innerHTML = `
+        <p class="detail-country">${d.name}</p>
+        <span class="tooltip-badge" style="background:${st.color}33;color:${st.color}">${st.label}</span>
+        <div class="detail-grid">
+          <div class="detail-item"><label>Rate</label><span class="rate">${d.rate}</span></div>
+          <div class="detail-item"><label>Effective</label><span>${d.effective}</span></div>
+          <div class="detail-item"><label>Thresholds</label><span>${d.thresholds}</span></div>
+          <div class="detail-item"><label>Scope</label><span>${d.scope}</span></div>
+          <div class="detail-item"><label>Notes</label><p>${d.notes}</p></div>
+        </div>`;
+    }
+
+    function buildTooltipHTML(code) {
+      const d = DST_DATA[code];
+      if (!d) return "";
+      const st = STATUS[d.status];
+      return `
+        <div class="tooltip-title">${d.name}</div>
+        <span class="tooltip-badge" style="background:${st.color}33;color:${st.color}">${st.label}</span>
+        <dl class="tooltip-row">
+          <dt>Rate</dt><dd>${d.rate}</dd>
+          <dt>Since</dt><dd>${d.effective}</dd>
+          <dt>Scope</dt><dd>${d.scope}</dd>
+        </dl>`;
+    }
+
+    function showTooltip(event, code) {
+      if (!DST_DATA[code]) return;
+      tooltip.innerHTML = buildTooltipHTML(code);
+      tooltip.hidden = false;
+      tooltip.classList.add("visible");
+      positionTooltip(event);
+    }
+
+    function hideTooltip() {
+      tooltip.classList.remove("visible");
+      tooltip.hidden = true;
+    }
+
+    function positionTooltip(event) {
+      const pad = 12;
+      let x = event.clientX;
+      let y = event.clientY - pad;
+      const rect = tooltip.getBoundingClientRect();
+      if (x - rect.width / 2 < pad) x = pad + rect.width / 2;
+      if (x + rect.width / 2 > window.innerWidth - pad) x = window.innerWidth - pad - rect.width / 2;
+      if (y - rect.height < pad) y = event.clientY + 24;
+      tooltip.style.left = `${x}px`;
+      tooltip.style.top = `${y}px`;
+    }
+
+    let highlightFn = () => {};
+
+    function highlightCountry(code) {
+      highlightFn(code);
+    }
+
+    async function initMap() {
+      renderLegend();
+      renderStats();
+      renderFilters();
+      renderCountryList();
+
+      const container = document.getElementById("map-container");
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+
+      const svg = d3.select("#map-container")
+        .append("svg")
+        .attr("viewBox", `0 0 ${width} ${height}`)
+        .attr("preserveAspectRatio", "xMidYMid meet");
+
+      const g = svg.append("g");
+
+      const projection = d3.geoNaturalEarth1()
+        .fitSize([width - 20, height - 20], { type: "Sphere" })
+        .translate([width / 2, height / 2]);
+
+      const path = d3.geoPath(projection);
+
+      const zoom = d3.zoom()
+        .scaleExtent([1, 8])
+        .on("zoom", (event) => g.attr("transform", event.transform));
+
+      svg.call(zoom);
+
+      const world = await d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
+      loading.remove();
+
+      const countries = topojson.feature(world, world.objects.countries);
+
+      projection.fitSize([width - 20, height - 20], countries);
+
+      const countryPaths = g.selectAll("path")
+        .data(countries.features)
+        .join("path")
+        .attr("class", d => {
+          const code = NAME_TO_ISO[d.properties.name];
+          return code && DST_DATA[code] ? "country has-dst" : "country";
+        })
+        .attr("fill", d => {
+          const code = NAME_TO_ISO[d.properties.name];
+          return code && DST_DATA[code] ? getColor(DST_DATA[code].status) : "#1e293b";
+        })
+        .attr("d", path)
+        .on("mousemove", (event, d) => {
+          const code = NAME_TO_ISO[d.properties.name];
+          if (code && DST_DATA[code]) {
+            showTooltip(event, code);
+            if (!pinnedCode) showDetail(code);
+          } else {
+            hideTooltip();
+          }
+        })
+        .on("mouseleave", () => hideTooltip())
+        .on("click", (event, d) => {
+          const code = NAME_TO_ISO[d.properties.name];
+          if (code && DST_DATA[code]) {
+            pinnedCode = code;
+            showDetail(code);
+            highlightCountry(code);
+          }
+        });
+
+      highlightFn = (code) => {
+        countryPaths.classed("dimmed", d => {
+          const c = NAME_TO_ISO[d.properties.name];
+          return pinnedCode && c !== pinnedCode;
+        });
+      };
+
+      window.addEventListener("resize", () => {
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        svg.attr("viewBox", `0 0 ${w} ${h}`);
+        projection.fitSize([w - 20, h - 20], countries);
+        countryPaths.attr("d", path);
+      });
+    }
+
+    initMap().catch(err => {
+      loading.textContent = "Failed to load map. Check your network connection.";
+      console.error(err);
+    });
+  </script>
+</body>
+</html>
