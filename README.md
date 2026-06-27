@@ -2,12 +2,12 @@
 
 Interactive color-coded world map of Digital Services Taxes and related digital revenue levies. Static site — no build step required.
 
-Works on **GitHub Pages**, **Netlify**, or any static host.
+**Live site:** [https://tmpprojects.github.io/dst-map/](https://tmpprojects.github.io/dst-map/)
 
 ## Local preview
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/tmpprojects/dst-map.git
 cd dst-map
 python3 -m http.server 8080
 ```
@@ -18,27 +18,9 @@ Open [http://localhost:8080](http://localhost:8080).
 
 ## GitHub Pages
 
-### Option A — GitHub Actions (recommended)
+Deployed automatically on push to `main` via [`.github/workflows/pages.yml`](.github/workflows/pages.yml).
 
-1. Push this repo to GitHub.
-2. **Settings → Pages → Build and deployment**
-   - Source: **GitHub Actions**
-3. Push to `main` (or `master`). The workflow in `.github/workflows/pages.yml` deploys automatically.
-
-**Project site URL:** `https://<username>.github.io/<repo-name>/`  
-**User/org site:** If the repo is named `<username>.github.io`, Pages serves from the repo root at `https://<username>.github.io/`.
-
-### Option B — Deploy from branch
-
-1. **Settings → Pages**
-2. Source: branch `main`, folder **`/ (root)`**
-3. Save. GitHub publishes `index.html` at your Pages URL.
-
-`.nojekyll` is included so GitHub skips Jekyll processing.
-
-## Netlify
-
-Drag the folder onto [Netlify Drop](https://app.netlify.com/drop), or connect the repo. `netlify.toml` is already configured.
+Site: [https://tmpprojects.github.io/dst-map/](https://tmpprojects.github.io/dst-map/)
 
 ## Data
 
